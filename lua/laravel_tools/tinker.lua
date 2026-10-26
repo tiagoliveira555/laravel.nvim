@@ -64,6 +64,145 @@ local function as_list(value)
 end
 
 ---------------------------------------------------------------------------
+-- Destaque da saída
+---------------------------------------------------------------------------
+local function setup_output_highlights()
+  local groups = {
+    LaravelTinkerString = "String",
+    LaravelTinkerNumber = "Number",
+    LaravelTinkerBoolean = "Boolean",
+    LaravelTinkerNull = "Constant",
+    LaravelTinkerType = "Type",
+  }
+
+  for name, target in pairs(groups) do
+    vim.api.nvim_set_hl(0, name, {
+      default = true,
+      link = target,
+    })
+  end
+end
+
+local function highlight_matches(buf, row, line, pattern, group)
+  local start = 1
+
+  while start <= #line do
+    local first, last = line:find(pattern, start)
+
+    if not first then
+      break
+    end
+
+    vim.api.nvim_buf_add_highlight(buf, ns, group, row, first - 1, last)
+    start = math.max(last + 1, first + 1)
+  end
+end
+
+local function highlight_string_ranges(line)
+  local ranges = {}
+  local i = 1
+
+  while i <= #line do
+    local quote = line:sub(i, i)
+
+    if quote == '"' or quote == "'" then
+      local start = i
+      i = i + 1
+
+      while i <= #line do
+        local char = line:sub(i, i)
+
+        if char == "\\" then
+          -- Ignora o caractere escapado.
+          i = i + 2
+        elseif char == quote then
+          i = i + 1
+          break
+        else
+          i = i + 1
+        end
+      end
+
+      ranges[#ranges + 1] = {
+        start - 1,
+        math.min(i - 1, #line),
+      }
+    else
+      i = i + 1
+    end
+  end
+
+  return ranges
+end
+
+local function overlaps_string(first, last, ranges)
+  for _, range in ipairs(ranges) do
+    if first < range[2] and last > range[1] then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function highlight_matches_outside_strings(buf, row, line, pattern, group, ranges)
+  local start = 1
+
+  while start <= #line do
+    local first, last = line:find(pattern, start)
+
+    if not first then
+      break
+    end
+
+    if not overlaps_string(first - 1, last, ranges) then
+      vim.api.nvim_buf_add_highlight(buf, ns, group, row, first - 1, last)
+    end
+
+    start = math.max(last + 1, first + 1)
+  end
+end
+
+local function highlight_output(buf, lines, header_hl)
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+
+  -- Mantém o destaque do status da execução na primeira linha.
+  if header_hl and lines[1] then
+    vim.api.nvim_buf_add_highlight(buf, ns, header_hl, 0, 0, #lines[1])
+  end
+
+  -- A primeira linha é o status e a segunda é um separador vazio.
+  for index = 3, #lines do
+    local row = index - 1
+    local line = lines[index]
+    local strings = highlight_string_ranges(line)
+
+    -- Destaca a string inteira antes dos outros padrões.
+    for _, range in ipairs(strings) do
+      vim.api.nvim_buf_add_highlight(buf, ns, "LaravelTinkerString", row, range[1], range[2])
+    end
+
+    -- Booleanos fora das strings.
+    highlight_matches_outside_strings(buf, row, line, "%f[%a]true%f[^%w_]", "LaravelTinkerBoolean", strings)
+
+    highlight_matches_outside_strings(buf, row, line, "%f[%a]false%f[^%w_]", "LaravelTinkerBoolean", strings)
+
+    -- null fora das strings.
+    highlight_matches_outside_strings(buf, row, line, "%f[%a]null%f[^%w_]", "LaravelTinkerNull", strings)
+
+    -- Números fora das strings.
+    highlight_matches_outside_strings(buf, row, line, "%-?%d+%.?%d*", "LaravelTinkerNumber", strings)
+
+    -- Nomes de tipos e classes fora das strings.
+    highlight_matches_outside_strings(buf, row, line, "%u[%w_]*", "LaravelTinkerType", strings)
+
+    highlight_matches_outside_strings(buf, row, line, "%f[%a]array%f[^%w_]", "LaravelTinkerType", strings)
+
+    highlight_matches_outside_strings(buf, row, line, "%f[%a]object%f[^%w_]", "LaravelTinkerType", strings)
+  end
+end
+
+---------------------------------------------------------------------------
 -- Artisan
 ---------------------------------------------------------------------------
 local function artisan_cmd(root)
@@ -189,14 +328,7 @@ local function set_output(lines, hl)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
 
-  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-
-  if hl and lines[1] then
-    vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
-      end_col = #lines[1],
-      hl_group = hl,
-    })
-  end
+  highlight_output(buf, lines, hl)
 
   if valid_win(state.win_out) then
     pcall(vim.api.nvim_win_set_cursor, state.win_out, { 1, 0 })
@@ -725,6 +857,8 @@ function M.reset()
 end
 
 function M.setup()
+  setup_output_highlights()
+
   vim.api.nvim_create_user_command("Tinker", function(opts)
     if opts.args == "repl" then
       return require("laravel_tools.commands").tinker_repl()
