@@ -82,6 +82,7 @@ function M.setup(cfg)
   local routes = require("laravel_tools.routes")
   local make = require("laravel_tools.make")
   local livewire = require("laravel_tools.livewire")
+  local move = require("laravel_tools.move")
 
   local prefix = cfg.prefix
 
@@ -144,6 +145,9 @@ function M.setup(cfg)
   leader("w", function()
     navigate.pick("livewire")
   end, "Livewire components")
+  leader("R", function()
+    move.move()
+  end, "Move PHP class")
 
   -- artisan, composer, tests ----------------------------------------------
   leader("a", "<cmd>Artisan<cr>", "Artisan")

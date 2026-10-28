@@ -36,6 +36,7 @@ M.defaults = {
   lang = {}, -- translations
   navigate = {}, -- view()/config()/env() navigation and folder pickers
   tinker = {}, -- Tinker board
+  move = {}, -- PHPantom class/file movement
 }
 
 local function is_list(t)
@@ -69,6 +70,7 @@ function M.setup(user)
   local make = require("laravel_tools.make")
   local livewire = require("laravel_tools.livewire")
   local tinker = require("laravel_tools.tinker")
+  local move = require("laravel_tools.move")
 
   -- shared options first, so per-module options can still override them
   commands.use_sail, commands.artisan_cmd = opts.use_sail, opts.artisan
@@ -86,6 +88,7 @@ function M.setup(user)
   apply(make, opts.make)
   apply(livewire, opts.livewire)
   apply(tinker, opts.tinker)
+  apply(move, opts.move)
 
   for _, t in ipairs(extra_types or {}) do
     make.add_type(t)
