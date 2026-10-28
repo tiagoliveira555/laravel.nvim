@@ -3,9 +3,15 @@
 A pure-Lua Neovim toolkit for Laravel projects, built to feel at home in [LazyVim](https://www.lazyvim.org). No extra daemon and no required plugin dependencies: everything goes through `artisan` (Sail-aware) or plain file parsing in Lua.
 
 - **Translations**: turn any string into `__('key')`, jump from a key to its translation, find where a key is used, and get key completion while typing.
+# laravel.nvim
+
+A pure-Lua Neovim toolkit for Laravel projects, built to feel at home in [LazyVim](https://www.lazyvim.org). No extra daemon and no required plugin dependencies: everything goes through `artisan` (Sail-aware) or plain file parsing in Lua.
+
+- **Translations**: turn any string into `__('key')`, jump from a key to its translation, find where a key is used, and get key completion while typing.
 - **Route navigation**: `gd` on `route('name')` jumps to the definition in `routes/*.php`, even for names built by route groups.
 - **`make:*` wizard**: create jobs, models, controllers, listeners and 30 other types with folder autocompletion, option prompts and automatic opening of the generated files.
 - **Livewire**: create the component class and its Blade view in one step.
+- **PHP class moving**: move classes between project directories with PSR-4 namespace resolution, destination preview and confirmation.
 - **View / config / env navigation**: `gd` on `view('x')`, `@include`, `config('a.b')`, `env('X')`.
 - **Artisan, Composer and Sail**: commands with completion, a migrations menu, tinker, tests, Sail status/up/down.
 
@@ -22,6 +28,7 @@ A pure-Lua Neovim toolkit for Laravel projects, built to feel at home in [LazyVi
   - [snacks.nvim](https://github.com/folke/snacks.nvim) for pickers and for hooking into LazyVim's `gd`
   - Docker + [Laravel Sail](https://laravel.com/docs/sail) if you develop in containers
   - [blade-nav.nvim](https://github.com/RicardoRamirezR/blade-nav.nvim), strongly recommended for Livewire and Blade components (see [below](#recommended-companion-blade-navnvim))
+  - `phpantom_lsp` for moving PHP classes. The move feature requires the executable to be available in your system's `PATH`.
 
 ## Installation
 
@@ -49,10 +56,10 @@ LazyVim maps `<leader>l` to `:Lazy`. That would make `<leader>l` both a command 
 ```lua
 opts = {
   keymaps = {
-    move_lazy = false,       -- do not touch Lazy
-    -- lazy_key = "<leader>uL",       -- or move Lazy somewhere else
-    -- changelog_key = "<leader>uC",  -- keep LazyVim's changelog on another key
-    -- prefix = "<leader>k",    -- or use another Laravel prefix and keep Lazy on <leader>l
+    move_lazy = false,             -- do not touch Lazy
+    -- lazy_key = "<leader>uL",     -- or move Lazy somewhere else
+    -- changelog_key = "<leader>uC", -- keep LazyVim's changelog on another key
+    -- prefix = "<leader>k",        -- or use another Laravel prefix and keep Lazy on <leader>l
   },
 }
 ```
@@ -143,6 +150,7 @@ With the default prefix `<leader>l`:
 | `<leader>lA` / `lj` / `lL` | n | New Action / Job / Listener |
 | `<leader>lg` | n | Go to the action (controller/Livewire) of the `route('x')` under the cursor |
 | `<leader>lp` | n | Pick from all named routes |
+| `<leader>lR` | n | Move the current PHP class |
 | `<leader>lc` `lm` `lv` `lr` `lw` | n | Find files in controllers / models / views / routes / Livewire |
 | `<leader>la` | n | Artisan picker |
 | `<leader>lC` | n | Composer picker |
@@ -242,6 +250,38 @@ opts = {
 }
 ```
 
+### Move PHP classes
+
+`<leader>lR` moves the PHP class in the current buffer to another directory in your Laravel project.
+
+The feature uses [`phpantom_lsp`](https://github.com/phpantom) to perform the move and resolve class references. The executable must be installed and available in your system's `PATH`.
+
+How it works:
+
+1. Open the PHP class you want to move.
+2. Press `<leader>lR`.
+3. Choose the destination directory using the folder input and its autocomplete.
+4. Review the source and destination paths and the class names.
+5. Confirm the operation or cancel it.
+
+The destination namespace is determined from the project's `composer.json` PSR-4 mappings. Both `autoload` and `autoload-dev` mappings are considered, so the feature can work with classes in application code and development-only directories when those directories are configured.
+
+Before executing the move, the plugin validates the source file, destination directory, namespace mapping and target path. It checks the proposed move with `phpantom_lsp` in dry-run mode and asks for confirmation before proceeding.
+
+**Requirements and notes:**
+
+- `phpantom_lsp` must be executable from Neovim's environment.
+- The project must contain a valid `composer.json` with a matching PSR-4 mapping for the destination.
+- The destination directory must already exist inside the project.
+- The destination file must not already exist.
+- Save the current PHP file before starting the operation.
+
+You can also invoke the feature from Lua:
+
+```lua
+require("laravel_tools.move").move()
+```
+
 ### Artisan, Composer and Sail
 
 | Command | Description |
@@ -288,6 +328,7 @@ Every feature is available without keymaps:
 ```lua
 require("laravel_tools.make").create("job")
 require("laravel_tools.livewire").create("Admin/")
+require("laravel_tools.move").move()
 require("laravel_tools.routes").goto_route("definition") -- or "action"
 require("laravel_tools.routes").pick()
 require("laravel_tools.lang").add()          -- translate/navigate under the cursor
@@ -301,6 +342,7 @@ Set `keymaps = { enabled = false }` and map what you want.
 
 - **The Laravel group waits before opening**: `<leader>l` is still mapped to something else. If it is Lazy, leave `move_lazy` on. If it is another mapping, remove it or set `keymaps.prefix`.
 - **`artisan list` / `route:list` fail silently**: the background prefetch is silent on purpose. Run `:Artisan list` or `:RoutesRefresh` to see the error. With Sail, make sure the containers are up.
+- **Moving a PHP class fails**: verify that `phpantom_lsp` is installed and available in `PATH`, the destination directory exists, and `composer.json` contains a matching PSR-4 mapping.
 - **No translation usages found**: install ripgrep and check that the key is written in single or double quotes.
 - Anything else: `:checkhealth laravel_tools`.
 
@@ -316,7 +358,7 @@ Code style is enforced with [StyLua](https://github.com/JohnnyMorganz/StyLua) (`
 
 Layout:
 
-```
+```text
 lua/laravel_tools/
   init.lua       setup(opts) and defaults
   keymaps.lua    default keymaps
@@ -325,6 +367,7 @@ lua/laravel_tools/
   navigate.lua   view() / config() / env() navigation and folder pickers
   make.lua       make:* wizard
   livewire.lua   Livewire creator
+  move.lua       PHP class moving
   lang.lua       translations and the floating input UI
   health.lua     :checkhealth
 ```
