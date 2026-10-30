@@ -3,11 +3,6 @@
 A pure-Lua Neovim toolkit for Laravel projects, built to feel at home in [LazyVim](https://www.lazyvim.org). No extra daemon and no required plugin dependencies: everything goes through `artisan` (Sail-aware) or plain file parsing in Lua.
 
 - **Translations**: turn any string into `__('key')`, jump from a key to its translation, find where a key is used, and get key completion while typing.
-# laravel.nvim
-
-A pure-Lua Neovim toolkit for Laravel projects, built to feel at home in [LazyVim](https://www.lazyvim.org). No extra daemon and no required plugin dependencies: everything goes through `artisan` (Sail-aware) or plain file parsing in Lua.
-
-- **Translations**: turn any string into `__('key')`, jump from a key to its translation, find where a key is used, and get key completion while typing.
 - **Route navigation**: `gd` on `route('name')` jumps to the definition in `routes/*.php`, even for names built by route groups.
 - **`make:*` wizard**: create jobs, models, controllers, listeners and 30 other types with folder autocompletion, option prompts and automatic opening of the generated files.
 - **Livewire**: create the component class and its Blade view in one step.
